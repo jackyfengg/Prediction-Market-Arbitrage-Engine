@@ -63,18 +63,13 @@ public:
             // Send message
             _ws.write(net::buffer(payload));
 
-            beast::flat_buffer buffer;
+            while(true) {
+                std::string message = read();
 
-            // Read message
-            _ws.read(buffer);
+                auto json = nlohmann::json::parse(message);
 
-            std::string message = beast::buffers_to_string(buffer.data());
-
-            auto json = nlohmann::json::parse(message);
-
-            std::cout << json.dump(2) << '\n';
-
-            return true;
+                handleMessage(json);
+            }
             
         } catch(std::exception const& e) {
             std::cerr << "Error: " << e.what() << std::endl;
@@ -83,12 +78,32 @@ public:
         return true;
     };
 
-    void read() {
+    // Reads message
+    std::string read() {
+        _ws.read(_buffer);
 
+        std::string message = beast::buffers_to_string(_buffer.data());
+        _buffer.consume(_buffer.size());
+
+        return message;
     };
 
     void ping() {
-        // TODO: send a WebSocket ping.
+        _ws.ping({});
+    };
+
+    void handleMessage(nlohmann::json& json) {
+        std::string eventType = json.value("event_type", "");
+
+        if (eventType == "book") {
+            // build or update order book
+        } else if (eventType == "price_change") {
+            // update price change
+        } else if (eventType == "best_bid_ask") {
+            // update best bid ask 
+        } else if (eventType == "last_trade_price") {
+            // update last trade
+        } 
     };
 
     private:
