@@ -140,7 +140,7 @@ void SocketClient::handleMessage(const nlohmann::json& json) {
         _books[assetId].applySnapshot(json);
 
     } else if (eventType == "price_change") {
-        for (auto& change : json["price_change"]) {
+        for (auto& change : json["price_changes"]) {
             std::string assetId = change["asset_id"].get<std::string>();
             _books[assetId].applyPriceChange(change);
         }
