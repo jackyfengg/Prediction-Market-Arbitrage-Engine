@@ -53,6 +53,37 @@ double OrderBook::getBestAsk() {
     return _asks.begin()->first;
 }
 
-OrderBook::CalculationResult calculateBuyCost(double quantity) {
-    // TODO
+OrderBook::CalculationResult OrderBook::calculateBuyCost(double quantity) const {
+    double unfilled = quantity, totalCost = 0;
+
+    for (const auto& [price, amountofsellers] : _asks) {
+        double filled = std::min(unfilled, amountofsellers);
+
+        totalCost += filled * price;
+        unfilled -= filled;
+
+        // Unfilled will never go negative since we have min(unfilled, amountofsellers)
+        if (unfilled <= 0) break;
+    }
+
+    double filledQuantity = quantity - unfilled;
+
+    return {filledQuantity, totalCost, filledQuantity > 0 ? totalCost / filledQuantity : 0.0};
+}
+
+OrderBook::CalculationResult OrderBook::calculateSellRevenue(double quantity) const {
+    double unfilled = quantity, totalRevenue = 0;
+
+    for (const auto& [price, amountofbuyers] : _bids) {
+        double filled = std::min(unfilled, amountofbuyers);
+
+        totalRevenue += filled * price;
+        unfilled -= filled;
+
+        if (unfilled <= 0) break;
+    }
+
+    double filledQuantity = quantity - unfilled;
+
+    return {filledQuantity, totalRevenue, filledQuantity > 0 ? totalRevenue / filledQuantity : 0.0};
 }
