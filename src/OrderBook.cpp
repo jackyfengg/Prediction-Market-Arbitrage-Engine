@@ -40,3 +40,19 @@ void OrderBook::applyPriceChange(const nlohmann::json& change) {
         }
     }
 }
+
+double OrderBook::getBestBid() {
+    if (_bids.empty()) return 0.0;
+
+    return _bids.begin()->first;
+}
+
+double OrderBook::getBestAsk() {
+    if (_asks.empty()) return 0.0;
+
+    return _asks.begin()->first;
+}
+
+OrderBook::CalculationResult calculateBuyCost(double quantity) {
+    // TODO
+}

@@ -121,12 +121,13 @@ void SocketClient::ping() {
 }
 
 void SocketClient::handleMessage(const nlohmann::json& json) {
-    std::cout << json.dump(2) << '\n';
+    // std::cout << json.dump(2) << '\n';
 
     if (json.is_array()) {
         for (auto& message : json) {
             handleMessage(message);
         }
+        return;
     }
 
     if (!json.is_object()) {
@@ -138,6 +139,14 @@ void SocketClient::handleMessage(const nlohmann::json& json) {
     if (eventType == "book") {
         std::string assetId = json["asset_id"].get<std::string>();
         _books[assetId].applySnapshot(json);
+
+        double bestBid = _books[assetId].getBestBid();
+        double bestAsk = _books[assetId].getBestAsk();
+
+        std::cout << "\nAsset: " << assetId << '\n';
+        std::cout << "Best Bid: " << bestBid << '\n';
+        std::cout << "Best Ask: " << bestAsk << '\n';
+        std::cout << "Spread: " << bestAsk - bestBid << "\n\n";
 
     } else if (eventType == "price_change") {
         for (auto& change : json["price_changes"]) {
