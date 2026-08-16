@@ -63,7 +63,7 @@ OrderBook::CalculationResult OrderBook::calculateBuyCost(double quantity) const 
         unfilled -= filled;
 
         // Unfilled will never go negative since we have min(unfilled, amountofsellers)
-        if (unfilled <= 0) break;
+        if (unfilled == 0) break;
     }
 
     double filledQuantity = quantity - unfilled;
@@ -80,7 +80,7 @@ OrderBook::CalculationResult OrderBook::calculateSellRevenue(double quantity) co
         totalRevenue += filled * price;
         unfilled -= filled;
 
-        if (unfilled <= 0) break;
+        if (unfilled == 0) break;
     }
 
     double filledQuantity = quantity - unfilled;
