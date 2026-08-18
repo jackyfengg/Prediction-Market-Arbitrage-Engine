@@ -10,11 +10,13 @@ SocketClient::SocketClient(
     const std::string& host,
     const std::string& port,
     const std::string& target,
+    ArbitrageEngine& engine,
     bool verifyCertificate
 ) : _host(host),
     _port(port),
     _target(target),
     _verifyCertificate(verifyCertificate),
+    _engine(engine),
     _ioc(),
     _ctx(net::ssl::context::tls_client),
     _resolver(_ioc),
@@ -121,42 +123,9 @@ void SocketClient::ping() {
 }
 
 void SocketClient::handleMessage(const nlohmann::json& json) {
-    // std::cout << json.dump(2) << '\n';
+    auto opportunities = _engine.processMessage(json);
 
-    if (json.is_array()) {
-        for (auto& message : json) {
-            handleMessage(message);
-        }
-        return;
-    }
-
-    if (!json.is_object()) {
-        return;
-    }
-
-    std::string eventType = json.value("event_type", "");
-
-    if (eventType == "book") {
-        std::string assetId = json["asset_id"].get<std::string>();
-        _books[assetId].applySnapshot(json);
-
-        double bestBid = _books[assetId].getBestBid();
-        double bestAsk = _books[assetId].getBestAsk();
-
-        std::cout << "\nAsset: " << assetId << '\n';
-        std::cout << "Best Bid: " << bestBid << '\n';
-        std::cout << "Best Ask: " << bestAsk << '\n';
-        std::cout << "Spread: " << bestAsk - bestBid << "\n\n";
-
-    } else if (eventType == "price_change") {
-        for (auto& change : json["price_changes"]) {
-            std::string assetId = change["asset_id"].get<std::string>();
-            _books[assetId].applyPriceChange(change);
-        }
-
-    } else if (eventType == "best_bid_ask") {
-        // update best bid ask
-    } else if (eventType == "last_trade_price") {
-        // update last trade
+    for (const auto& opportunity : opportunities) {
+        std::cout << "Arbitrage found: " << opportunity.grossProfit << '\n';
     }
 }

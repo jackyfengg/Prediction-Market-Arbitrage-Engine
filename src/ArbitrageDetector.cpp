@@ -1,8 +1,15 @@
 #include "ArbitrageDetector.hpp"
 
 ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& market, const std::unordered_map<std::string, OrderBook>& books, double quantity) const {
-    const OrderBook& yesOrderBook = books.at(market.yesAssetId);
-    const OrderBook& noOrderBook = books.at(market.noAssetId);
+    auto yesIt = books.find(market.yesAssetId);
+    auto noIt = books.find(market.noAssetId);
+
+    if (yesIt == books.end() || noIt == books.end()) {
+        return {};
+    }
+
+    const OrderBook& yesOrderBook = yesIt->second;
+    const OrderBook& noOrderBook = noIt->second;
 
     OrderBook::CalculationResult yesResult = yesOrderBook.calculateBuyCost(quantity);
     OrderBook::CalculationResult noResult = noOrderBook.calculateBuyCost(quantity);

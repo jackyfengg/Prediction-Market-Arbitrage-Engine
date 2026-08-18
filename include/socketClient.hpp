@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "OrderBook.hpp"
+#include "ArbitrageEngine.hpp"
 
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ public:
         const std::string& host,
         const std::string& port,
         const std::string& target,
+        ArbitrageEngine& engine,
         bool verifyCertificate = true
     );
 
@@ -57,5 +59,7 @@ private:
     websocket::stream<net::ssl::stream<tcp::socket>> _ws;
     beast::flat_buffer _buffer;
 
-    std::unordered_map<std::string, OrderBook> _books;
+    ArbitrageEngine& _engine;
+
+    // std::unordered_map<std::string, OrderBook> _books;
 };

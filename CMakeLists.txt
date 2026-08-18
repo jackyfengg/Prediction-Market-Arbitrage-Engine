@@ -38,7 +38,9 @@ enable_testing()
 
 add_executable(arbitrage_tests
     tests/ArbitrageDetectorTest.cpp
+    tests/ArbitrageEngineTest.cpp
     src/ArbitrageDetector.cpp
+    src/ArbitrageEngine.cpp
     src/OrderBook.cpp
 )
 
@@ -54,4 +56,5 @@ target_link_libraries(arbitrage_tests
 )
 
 include(GoogleTest)
+
 gtest_discover_tests(arbitrage_tests)

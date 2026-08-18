@@ -173,3 +173,83 @@ TEST(ArbitrageDetectorTest, HandlesMultipleAskLevels) {
     EXPECT_DOUBLE_EQ(result.payout, 100);
     EXPECT_DOUBLE_EQ(result.grossProfit, 17.5);
 }
+
+TEST(ArbitrageDetectorTest, ScanReturnsOnlyProfitableMarkets) {
+    Market profitableMarket{"YES1", "NO1"};
+    Market noProfitMarket{"YES2", "NO2"};
+    Market noLiquidityMarket{"YES3", "NO3"};
+
+    OrderBook yes1;
+    yes1.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", {
+            {{"price", "0.40"}, {"size", "100"}}
+        }}
+    });
+
+    OrderBook no1;
+    no1.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", {
+            {{"price", "0.40"}, {"size", "100"}}
+        }}
+    });
+
+    OrderBook yes2;
+    yes2.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", {
+            {{"price", "0.50"}, {"size", "100"}}
+        }}
+    });
+
+    OrderBook no2;
+    no2.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", {
+            {{"price", "0.50"}, {"size", "100"}}
+        }}
+    });
+
+    OrderBook yes3;
+    yes3.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", {
+            {{"price", "0.40"}, {"size", "100"}}
+        }}
+    });
+
+    OrderBook no3;
+    no3.applySnapshot({
+        {"bids", nlohmann::json::array()},
+        {"asks", nlohmann::json::array()}
+    });
+
+    std::vector<Market> markets{
+        profitableMarket,
+        noProfitMarket,
+        noLiquidityMarket
+    };
+
+    std::unordered_map<std::string, OrderBook> books{
+        {"YES1", yes1},
+        {"NO1", no1},
+        {"YES2", yes2},
+        {"NO2", no2},
+        {"YES3", yes3},
+        {"NO3", no3}
+    };
+
+    ArbitrageDetector detector;
+
+    auto opportunities = detector.scan(markets, books, 100);
+
+    EXPECT_EQ(opportunities.size(), 1);
+
+    EXPECT_DOUBLE_EQ(opportunities[0].quantity, 100);
+    EXPECT_DOUBLE_EQ(opportunities[0].yesCost, 40);
+    EXPECT_DOUBLE_EQ(opportunities[0].noCost, 40);
+    EXPECT_DOUBLE_EQ(opportunities[0].totalCost, 80);
+    EXPECT_DOUBLE_EQ(opportunities[0].payout, 100);
+    EXPECT_DOUBLE_EQ(opportunities[0].grossProfit, 20);
+}

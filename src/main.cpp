@@ -1,11 +1,21 @@
 #include "SocketClient.hpp"
+#include "ArbitrageEngine.hpp"
+
 #include <iostream>
+#include <vector>
 
 int main() {
+    std::vector<Market> markets = {
+        {"3039641309958397001906153616677074061284510636204155275446291716739429262374"}
+    };
+
+    ArbitrageEngine engine(markets, 1.0);
+
     SocketClient client(
         "ws-subscriptions-clob.polymarket.com",
         "443",
-        "/ws/market"
+        "/ws/market",
+        engine
     );
 
     std::cout << "Connecting...\n";
@@ -17,12 +27,11 @@ int main() {
 
     std::cout << "Connection successful\n";
 
-    std::string assetId = "3039641309958397001906153616677074061284510636204155275446291716739429262374";
+    std::string assetId =
+        "3039641309958397001906153616677074061284510636204155275446291716739429262374";
 
     client.subscribe(
-        {
-            assetId
-        },
+        {assetId},
         "market",
         true,
         0,
