@@ -1,0 +1,25 @@
+{
+    "event_type": "price_change",
+    "market": "0x895e01dbf3e6a33cd9a44ca0f8cdb5df1bd2b0b6ebed5300d28f8da7145145e4",
+    "price_changes": [
+        {
+            "asset_id": "27828976648682466778776999076215423777766972981338264154049603024771135223200",
+            "best_ask": "0.978",
+            "best_bid": "0.977",
+            "hash": "17797dd36a3a2e5779d3425cf995bdacf5440a22",
+            "price": "0.806",
+            "side": "BUY",
+            "size": "0"
+        },
+        {
+            "asset_id": "3039641309958397001906153616677074061284510636204155275446291716739429262374",
+            "best_ask": "0.023",
+            "best_bid": "0.022",
+            "hash": "40020b73fbf0e962cefe8ecef5c51ad119a49afe",
+            "price": "0.194",
+            "side": "SELL",
+            "size": "0"
+        }
+    ],
+    "timestamp": "1787036695397"
+}
