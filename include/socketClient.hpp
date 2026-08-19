@@ -43,8 +43,6 @@ public:
 
     std::string read();
 
-    void ping();
-
     void handleMessage(const nlohmann::json& json);
 
 private:

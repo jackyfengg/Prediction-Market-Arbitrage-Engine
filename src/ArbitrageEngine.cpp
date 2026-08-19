@@ -1,7 +1,5 @@
 #include "ArbitrageEngine.hpp"
 
-#include <iostream>
-
 ArbitrageEngine::ArbitrageEngine(
     const std::vector<Market>& markets,
     double quantity
@@ -15,15 +13,28 @@ ArbitrageEngine::ArbitrageEngine(
     }
 }
 
-std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(const nlohmann::json& json) {
+void ArbitrageEngine::initializeBook(
+    const std::string& assetId,
+    const nlohmann::json& book
+) {
+    _books[assetId].applySnapshot(book);
+}
 
+std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(
+    const nlohmann::json& json
+) {
     std::vector<ArbitrageOpportunity> opportunities;
 
     if (json.is_array()) {
         for (const auto& message : json) {
-            std::vector<ArbitrageOpportunity> results = processMessage(message);
+            std::vector<ArbitrageOpportunity> results =
+                processMessage(message);
 
-            opportunities.insert(opportunities.end(), results.begin(), results.end());
+            opportunities.insert(
+                opportunities.end(),
+                results.begin(),
+                results.end()
+            );
         }
 
         return opportunities;
@@ -33,7 +44,8 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(const nlohmann
         return {};
     }
 
-    std::string eventType = json.value("event_type", "");
+    std::string eventType =
+        json.value("event_type", "");
 
     if (eventType == "book") {
         std::string assetId =
@@ -50,34 +62,6 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(const nlohmann
         const Market& market = it->second;
 
         ArbitrageOpportunity opportunity =
-            _detector.checkBinaryArbitrage(market, _books, _quantity);
-
-        if (opportunity.grossProfit > 0) {
-            opportunities.push_back(opportunity);
-        }
-
-    } else if (eventType == "price_change") {
-    std::unordered_set<std::string> affectedMarkets;
-
-    for (const auto& change : json["price_changes"]) {
-        std::string assetId =
-            change["asset_id"].get<std::string>();
-
-        _books[assetId].applyPriceChange(change);
-
-        auto it = _assetToMarket.find(assetId);
-
-        if (it == _assetToMarket.end()) {
-            continue;
-        }
-
-        affectedMarkets.insert(it->second.yesAssetId);
-    }
-
-    for (const auto& marketId : affectedMarkets) {
-        const Market& market = _assetToMarket.at(marketId);
-
-        ArbitrageOpportunity opportunity =
             _detector.checkBinaryArbitrage(
                 market,
                 _books,
@@ -86,9 +70,50 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(const nlohmann
 
         if (opportunity.grossProfit > 0) {
             opportunities.push_back(opportunity);
+        }
+
+    } else if (eventType == "price_change") {
+        std::unordered_set<std::string> affectedMarkets;
+
+        for (const auto& change : json["price_changes"]) {
+            std::string assetId =
+                change["asset_id"].get<std::string>();
+
+            auto bookIt = _books.find(assetId);
+
+            if (bookIt == _books.end()) {
+                continue;
+            }
+
+            bookIt->second.applyPriceChange(change);
+
+            auto it = _assetToMarket.find(assetId);
+
+            if (it == _assetToMarket.end()) {
+                continue;
+            }
+
+            affectedMarkets.insert(
+                it->second.yesAssetId
+            );
+        }
+
+        for (const auto& marketId : affectedMarkets) {
+            const Market& market =
+                _assetToMarket.at(marketId);
+
+            ArbitrageOpportunity opportunity =
+                _detector.checkBinaryArbitrage(
+                    market,
+                    _books,
+                    _quantity
+                );
+
+            if (opportunity.grossProfit > 0) {
+                opportunities.push_back(opportunity);
             }
         }
     }
-    
+
     return opportunities;
 }

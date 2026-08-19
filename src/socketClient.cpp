@@ -66,6 +66,7 @@ bool SocketClient::connect() {
 
         // Start the WebSocket handshake
         _ws.handshake(connectionhost, _target);
+
         return true;
     }
     catch (const std::exception& e) {
@@ -97,6 +98,14 @@ bool SocketClient::subscribe(
         while (true) {
             std::string message = read();
 
+            if (message == "PONG") {
+                continue;
+            }
+
+            if (message.empty()) {
+                continue;
+            }
+
             auto json = nlohmann::json::parse(message);
 
             handleMessage(json);
@@ -106,6 +115,7 @@ bool SocketClient::subscribe(
         std::cerr << "Error: " << e.what() << std::endl;
         return false;
     }
+
     return true;
 }
 
@@ -118,14 +128,12 @@ std::string SocketClient::read() {
     return message;
 }
 
-void SocketClient::ping() {
-    _ws.ping({});
-}
-
 void SocketClient::handleMessage(const nlohmann::json& json) {
     auto opportunities = _engine.processMessage(json);
 
     for (const auto& opportunity : opportunities) {
-        std::cout << "Arbitrage found: " << opportunity.grossProfit << '\n';
+        std::cout << "Arbitrage found: "
+                  << opportunity.grossProfit
+                  << '\n';
     }
 }

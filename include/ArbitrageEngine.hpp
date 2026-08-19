@@ -13,6 +13,8 @@ class ArbitrageEngine{
 public:
     ArbitrageEngine(const std::vector<Market>& markets, double quantity);
 
+    void initializeBook(const std::string& assetId, const nlohmann::json& book);
+
     std::vector<ArbitrageOpportunity> processMessage(const nlohmann::json& josn);
 
 private:

@@ -58,3 +58,8 @@ target_link_libraries(arbitrage_tests
 include(GoogleTest)
 
 gtest_discover_tests(arbitrage_tests)
+
+file(COPY
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests
+)
