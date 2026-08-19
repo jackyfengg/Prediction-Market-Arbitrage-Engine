@@ -1,16 +1,56 @@
 #include "ArbitrageEngine.hpp"
 
+namespace {
+
+// Converts a simulated execution into a full opportunity object.
+ArbitrageOpportunity toOpportunity(const ExecutionResult& exec) {
+    ArbitrageOpportunity opp;
+
+    opp.quantity = exec.executedQuantity;
+    opp.requestedQuantity = exec.requestedQuantity;
+    opp.yesCost = exec.yesCost;
+    opp.noCost = exec.noCost;
+    opp.totalCost = exec.capitalRequired;
+    opp.yesFee = exec.yesFee;
+    opp.noFee = exec.noFee;
+    opp.totalFees = exec.fees;
+    opp.slippage = exec.slippage;
+    opp.payout = exec.payout;
+    opp.grossProfit = exec.grossProfit;
+    opp.netProfit = exec.netProfit;
+    opp.returnOnCapital = exec.returnOnCapital;
+
+    return opp;
+}
+
+} // namespace
+
 ArbitrageEngine::ArbitrageEngine(
     const std::vector<Market>& markets,
-    double quantity
+    double quantity,
+    double feeRate
 )
     : _markets(markets),
+      _feeModel(feeRate),
+      _detector(_feeModel),
+      _simulator(_feeModel),
       _quantity(quantity)
 {
     for (const Market& market : _markets) {
         _assetToMarket[market.yesAssetId] = market;
         _assetToMarket[market.noAssetId] = market;
     }
+}
+
+std::vector<std::string> ArbitrageEngine::assetIds() const {
+    std::vector<std::string> ids;
+
+    for (const Market& market : _markets) {
+        ids.push_back(market.yesAssetId);
+        ids.push_back(market.noAssetId);
+    }
+
+    return ids;
 }
 
 void ArbitrageEngine::initializeBook(
@@ -37,19 +77,17 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(
             );
         }
 
-        return opportunities;
+        return _ranker.rank(std::move(opportunities));
     }
 
     if (!json.is_object()) {
         return {};
     }
 
-    std::string eventType =
-        json.value("event_type", "");
+    std::string eventType = json.value("event_type", "");
 
     if (eventType == "book") {
-        std::string assetId =
-            json["asset_id"].get<std::string>();
+        std::string assetId = json["asset_id"].get<std::string>();
 
         _books[assetId].applySnapshot(json);
 
@@ -62,22 +100,19 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(
         const Market& market = it->second;
 
         ArbitrageOpportunity opportunity =
-            _detector.checkBinaryArbitrage(
-                market,
-                _books,
-                _quantity
-            );
+            evaluateMarket(market);
 
-        if (opportunity.grossProfit > 0) {
+        if (opportunity.netProfit > 0) {
             opportunities.push_back(opportunity);
         }
 
     } else if (eventType == "price_change") {
+        // Only markets whose books actually changed are re-checked,
+        // instead of scanning every market on every update.
         std::unordered_set<std::string> affectedMarkets;
 
         for (const auto& change : json["price_changes"]) {
-            std::string assetId =
-                change["asset_id"].get<std::string>();
+            std::string assetId = change["asset_id"].get<std::string>();
 
             auto bookIt = _books.find(assetId);
 
@@ -93,27 +128,43 @@ std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(
                 continue;
             }
 
-            affectedMarkets.insert(
-                it->second.yesAssetId
-            );
+            affectedMarkets.insert(it->second.yesAssetId);
         }
 
         for (const auto& marketId : affectedMarkets) {
-            const Market& market =
-                _assetToMarket.at(marketId);
+            const Market& market = _assetToMarket.at(marketId);
 
             ArbitrageOpportunity opportunity =
-                _detector.checkBinaryArbitrage(
-                    market,
-                    _books,
-                    _quantity
-                );
+                evaluateMarket(market);
 
-            if (opportunity.grossProfit > 0) {
+            if (opportunity.netProfit > 0) {
                 opportunities.push_back(opportunity);
             }
         }
     }
 
-    return opportunities;
+    return _ranker.rank(std::move(opportunities));
+}
+
+ArbitrageOpportunity ArbitrageEngine::evaluateMarket(const Market& market) {
+    // 1. Fast, deterministic detection: is there a candidate at all?
+    ArbitrageOpportunity candidate =
+        _detector.checkBinaryArbitrage(market, _books, _quantity);
+
+    if (candidate.quantity <= 0) {
+        return {};
+    }
+
+    // 2. Realistic execution simulation: what actually fills, and what are
+    //    the economics after fees and slippage?
+    ExecutionResult exec =
+        _simulator.simulate(market, _books, candidate.requestedQuantity);
+
+    if (exec.netProfit <= 0) {
+        return {};
+    }
+
+    // 3. Return the fully-populated opportunity; ranking happens in
+    //    processMessage via OpportunityRanker.
+    return toOpportunity(exec);
 }

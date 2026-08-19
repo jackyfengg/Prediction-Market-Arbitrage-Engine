@@ -38,10 +38,22 @@ enable_testing()
 
 add_executable(arbitrage_tests
     tests/ArbitrageDetectorTest.cpp
+    tests/ArbitrageDetectorEconomicsTest.cpp
     tests/ArbitrageEngineTest.cpp
+    tests/ArbitrageEnginePipelineTest.cpp
+    tests/OrderBookTest.cpp
+    tests/FeeModelTest.cpp
+    tests/ExecutionSimulatorTest.cpp
+    tests/OpportunityRankerTest.cpp
+    tests/MarketLoaderTest.cpp
     src/ArbitrageDetector.cpp
     src/ArbitrageEngine.cpp
     src/OrderBook.cpp
+    src/FeeModel.cpp
+    src/ExecutionSimulator.cpp
+    src/OpportunityRanker.cpp
+    src/MarketLoader.cpp
+    src/ClobRestClient.cpp
 )
 
 target_include_directories(arbitrage_tests
@@ -53,6 +65,10 @@ target_link_libraries(arbitrage_tests
     PRIVATE
         GTest::gtest_main
         nlohmann_json::nlohmann_json
+        Boost::system
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ws2_32
 )
 
 include(GoogleTest)

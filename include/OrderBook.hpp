@@ -8,9 +8,11 @@
 class OrderBook {
 public:
     struct CalculationResult {
-        double quantity;
-        double totalCost;
-        double averagePrice;
+        double quantity = 0.0;    // how much was actually filled
+        double totalCost = 0.0;   // total paid for the filled quantity
+        double averagePrice = 0.0;
+        double bestPrice = 0.0;   // best (top-of-book) price on the relevant side
+        double slippage = 0.0;    // cost of consuming liquidity: (avg - best) * filled for buys
     };
 
     void applySnapshot(const nlohmann::json& json);
