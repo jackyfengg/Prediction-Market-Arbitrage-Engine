@@ -99,6 +99,15 @@ Market marketFromMarketObject(const nlohmann::json& m) {
 
     market.yesAssetId = yesId;
     market.noAssetId = noId;
+    market.question = m.value("question", "");
+    market.conditionId = m.value("conditionId", "");
+    market.slug = m.value("slug", "");
+
+    // The event slug lives on the nested event object; it differs from the
+    // market slug for ~78% of markets, and the canonical page URL needs both.
+    if (m.contains("events") && m["events"].is_array() && !m["events"].empty()) {
+        market.eventSlug = m["events"][0].value("slug", "");
+    }
 
     return market;
 }
@@ -149,12 +158,34 @@ MarketLoader::MarketLoader(ClobRestClient& client)
 }
 
 std::vector<Market> MarketLoader::loadMarkets(std::size_t limit) const {
-    std::string target =
-        "/markets?closed=false&active=true&limit=" +
-        std::to_string(limit) +
-        "&order=volume24hr&ascending=false";
+    // The Gamma API caps each request at 100 markets, so fetch pages until
+    // we have enough (or run out of markets).
+    constexpr std::size_t kPageSize = 100;
 
-    nlohmann::json response = _client.getJson(target);
+    std::vector<Market> markets;
 
-    return parseMarkets(response);
+    for (std::size_t offset = 0; markets.size() < limit; offset += kPageSize) {
+        std::string target =
+            "/markets?closed=false&active=true&limit=" +
+            std::to_string(kPageSize) +
+            "&offset=" + std::to_string(offset) +
+            "&order=volume24hr&ascending=false";
+
+        nlohmann::json response = _client.getJson(target);
+
+        std::vector<Market> page = parseMarkets(response);
+
+        markets.insert(markets.end(), page.begin(), page.end());
+
+        // Fewer than a full page means we reached the end of the list.
+        if (!response.is_array() || response.size() < kPageSize) {
+            break;
+        }
+    }
+
+    if (markets.size() > limit) {
+        markets.resize(limit);
+    }
+
+    return markets;
 }

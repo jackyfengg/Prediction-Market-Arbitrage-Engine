@@ -18,8 +18,8 @@ public:
     void applySnapshot(const nlohmann::json& json);
     void applyPriceChange(const nlohmann::json& json);
 
-    double getBestBid();
-    double getBestAsk();
+    double getBestBid() const;
+    double getBestAsk() const;
 
     CalculationResult calculateBuyCost(double quantity) const;
     CalculationResult calculateSellRevenue(double quantity) const;

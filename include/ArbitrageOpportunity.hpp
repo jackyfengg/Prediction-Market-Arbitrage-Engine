@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Market.hpp"
+
 // A complete trade candidate: what to buy, at what cost, and what the
 // expected economics are after liquidity consumption (slippage) and fees.
 struct ArbitrageOpportunity {
@@ -16,4 +18,7 @@ struct ArbitrageOpportunity {
     double grossProfit = 0.0;        // payout - totalCost
     double netProfit = 0.0;          // grossProfit - totalFees
     double returnOnCapital = 0.0;    // netProfit / totalCost
+
+    // Which market this opportunity is on (for reporting/tracing).
+    Market market;
 };

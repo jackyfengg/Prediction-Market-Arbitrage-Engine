@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <thread>
 
@@ -16,6 +17,22 @@ namespace {
 std::chrono::seconds backoffDelay(int attempt) {
     int seconds = 1 << std::min(attempt, 5);
     return std::chrono::seconds(std::min(seconds, 30));
+}
+
+nlohmann::json makeSubscriptionRequest(
+    const std::vector<std::string>& assetIds,
+    const std::string& type,
+    bool initialDump,
+    int level,
+    bool customFeatureEnabled
+) {
+    nlohmann::json request;
+    request["assets_ids"] = assetIds;
+    request["type"] = type;
+    request["initial_dump"] = initialDump;
+    request["level"] = level;
+    request["custom_feature_enabled"] = customFeatureEnabled;
+    return request;
 }
 
 } // namespace
@@ -93,7 +110,7 @@ bool SocketClient::connect() {
         _state = ConnectionState::Disconnected;
         _ws.reset();
 
-        std::cerr << "Connection error: " << e.what() << '\n';
+        std::cerr << "[error] connection error: " << e.what() << '\n';
 
         return false;
     }
@@ -107,6 +124,7 @@ bool SocketClient::subscribe(
     bool customFeatureEnabled
 ) {
     int attempt = 0;
+    bool hasSubscribed = false;
 
     while (true) {
         if (_state != ConnectionState::Connected && !connect()) {
@@ -120,17 +138,21 @@ bool SocketClient::subscribe(
             continue;
         }
 
+        if (hasSubscribed) {
+            std::cout << "Connection successful\n";
+        }
+
+        const auto connectionStarted = std::chrono::steady_clock::now();
+
         try {
-            nlohmann::json request;
-            request["assets_ids"] = assetIds;
-            request["type"] = type;
-            request["initial_dump"] = initialDump;
-            request["level"] = level;
-            request["custom_feature_enabled"] = customFeatureEnabled;
+            // The server accepts exactly one subscription message per
+            // connection, so all assets must go in a single message.
+            _ws->write(net::buffer(
+                makeSubscriptionRequest(
+                    assetIds, type, initialDump, level,
+                    customFeatureEnabled).dump()));
 
-            _ws->write(net::buffer(request.dump()));
-
-            attempt = 0; // a successful subscribe resets the backoff
+            hasSubscribed = true;
 
             std::cout << "Subscribed to " << assetIds.size()
                       << " assets\n";
@@ -147,17 +169,46 @@ bool SocketClient::subscribe(
                 }
                 catch (const nlohmann::json::exception& e) {
                     // A malformed message should not kill the connection.
-                    std::cerr << "Malformed message: " << e.what() << '\n';
+                    std::cerr << "[error] malformed message: " << e.what()
+                              << " | raw: " << message.substr(0, 120)
+                              << '\n';
                 }
             }
         }
-        catch (const std::exception& e) {
-            // Expected for connection loss (e.g. EOF) - recoverable.
-            std::cerr << "Connection lost: " << e.what() << '\n';
+        catch (const boost::system::system_error& e) {
+            // A server-initiated WebSocket close is expected and recoverable.
+            if (e.code() == websocket::error::closed) {
+                if (_ws) {
+                    const auto& reason = _ws->reason();
+                    std::cerr << "[ws] connection closed by server"
+                              << " (code "
+                              << static_cast<unsigned>(reason.code)
+                              << ", reason: \"" << reason.reason << "\")\n";
+                } else {
+                    std::cerr << "[ws] connection closed by server\n";
+                }
+            } else {
+                std::cerr << "[error] connection lost: " << e.what() << '\n';
+            }
 
             _state = ConnectionState::Disconnected;
             _ws.reset();
             _buffer.consume(_buffer.size());
+        }
+        catch (const std::exception& e) {
+            std::cerr << "[error] connection lost: " << e.what() << '\n';
+
+            _state = ConnectionState::Disconnected;
+            _ws.reset();
+            _buffer.consume(_buffer.size());
+        }
+
+        // A connection that lived for a while should start the next recovery
+        // with the short delay; consecutive immediate closes retain
+        // exponential backoff instead of hammering the server.
+        if (std::chrono::steady_clock::now() - connectionStarted
+                >= std::chrono::seconds(30)) {
+            attempt = 0;
         }
 
         // REST resync before reconnecting: the local books may have missed
@@ -165,14 +216,14 @@ bool SocketClient::subscribe(
         if (_resync) {
             try {
                 _resync();
-                std::cout << "Books resynced from REST\n";
+                std::cout << "[resync] books resynced from REST\n";
             }
             catch (const std::exception& e) {
-                std::cerr << "Resync failed: " << e.what() << '\n';
+                std::cerr << "[error] resync failed: " << e.what() << '\n';
             }
         }
 
-        std::cout << "Reconnecting in " << backoffDelay(attempt).count()
+        std::cout << "[ws] reconnecting in " << backoffDelay(attempt).count()
                   << "s\n";
 
         std::this_thread::sleep_for(backoffDelay(attempt));
@@ -208,8 +259,7 @@ void SocketClient::handleMessage(const nlohmann::json& json) {
     auto opportunities = _engine.processMessage(json);
 
     for (const auto& opportunity : opportunities) {
-        std::cout << "Arbitrage found: net=$"
-                  << opportunity.netProfit
-                  << '\n';
+        std::cout << "[arb] net $" << std::fixed << std::setprecision(4)
+                  << opportunity.netProfit << '\n';
     }
 }

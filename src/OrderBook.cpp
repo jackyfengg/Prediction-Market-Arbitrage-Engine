@@ -41,13 +41,13 @@ void OrderBook::applyPriceChange(const nlohmann::json& change) {
     }
 }
 
-double OrderBook::getBestBid() {
+double OrderBook::getBestBid() const {
     if (_bids.empty()) return 0.0;
 
     return _bids.begin()->first;
 }
 
-double OrderBook::getBestAsk() {
+double OrderBook::getBestAsk() const {
     if (_asks.empty()) return 0.0;
 
     return _asks.begin()->first;

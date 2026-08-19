@@ -27,6 +27,10 @@ public:
 
     std::vector<ArbitrageOpportunity> processMessage(const nlohmann::json& json);
 
+    // Sum of the best asks (YES + NO) for a market, used to monitor how close
+    // it is to arbitrage. Returns 0.0 if either book is missing or empty.
+    double combinedBestAsk(const Market& market) const;
+
     const std::vector<Market>& markets() const { return _markets; }
 
     // All subscribed asset ids (YES + NO across every market).

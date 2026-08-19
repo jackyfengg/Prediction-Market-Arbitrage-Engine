@@ -75,6 +75,24 @@ TEST(ArbitrageEnginePipelineTest, FeesEliminateOpportunityEndToEnd) {
     EXPECT_TRUE(result.empty());
 }
 
+TEST(ArbitrageEnginePipelineTest, CombinedBestAskMonitorsDistanceToArbitrage) {
+    Market market{"YES", "NO"};
+
+    ArbitrageEngine engine({market}, 100.0);
+
+    // No books yet -> 0.
+    EXPECT_DOUBLE_EQ(engine.combinedBestAsk(market), 0.0);
+
+    engine.processMessage(bookSnapshot("YES", "0.40"));
+
+    // Only one side loaded -> 0.
+    EXPECT_DOUBLE_EQ(engine.combinedBestAsk(market), 0.0);
+
+    engine.processMessage(bookSnapshot("NO", "0.45"));
+
+    EXPECT_NEAR(engine.combinedBestAsk(market), 0.85, 1e-9);
+}
+
 TEST(ArbitrageEnginePipelineTest, SimulatedExecutionPopulatesFullEconomics) {
     Market market{"YES", "NO"};
 
@@ -101,4 +119,8 @@ TEST(ArbitrageEnginePipelineTest, SimulatedExecutionPopulatesFullEconomics) {
     EXPECT_DOUBLE_EQ(opp.grossProfit, 20.0);
     EXPECT_DOUBLE_EQ(opp.netProfit, 19.20);
     EXPECT_NEAR(opp.returnOnCapital, 19.20 / 80.0, 1e-9);
+
+    // The opportunity must carry enough identity to report what to buy.
+    EXPECT_EQ(opp.market.yesAssetId, "YES");
+    EXPECT_EQ(opp.market.noAssetId, "NO");
 }

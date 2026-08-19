@@ -3,8 +3,12 @@
 namespace {
 
 // Converts a simulated execution into a full opportunity object.
-ArbitrageOpportunity toOpportunity(const ExecutionResult& exec) {
+ArbitrageOpportunity toOpportunity(
+    const Market& market,
+    const ExecutionResult& exec
+) {
     ArbitrageOpportunity opp;
+    opp.market = market;
 
     opp.quantity = exec.executedQuantity;
     opp.requestedQuantity = exec.requestedQuantity;
@@ -58,6 +62,24 @@ void ArbitrageEngine::initializeBook(
     const nlohmann::json& book
 ) {
     _books[assetId].applySnapshot(book);
+}
+
+double ArbitrageEngine::combinedBestAsk(const Market& market) const {
+    auto yesIt = _books.find(market.yesAssetId);
+    auto noIt = _books.find(market.noAssetId);
+
+    if (yesIt == _books.end() || noIt == _books.end()) {
+        return 0.0;
+    }
+
+    double yesAsk = yesIt->second.getBestAsk();
+    double noAsk = noIt->second.getBestAsk();
+
+    if (yesAsk <= 0.0 || noAsk <= 0.0) {
+        return 0.0;
+    }
+
+    return yesAsk + noAsk;
 }
 
 std::vector<ArbitrageOpportunity> ArbitrageEngine::processMessage(
@@ -166,5 +188,5 @@ ArbitrageOpportunity ArbitrageEngine::evaluateMarket(const Market& market) {
 
     // 3. Return the fully-populated opportunity; ranking happens in
     //    processMessage via OpportunityRanker.
-    return toOpportunity(exec);
+    return toOpportunity(market, exec);
 }

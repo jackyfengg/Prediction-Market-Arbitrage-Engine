@@ -10,6 +10,7 @@
 
 #include <openssl/ssl.h>
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -35,6 +36,10 @@ nlohmann::json ClobRestClient::getJson(const std::string& target) const {
     tcp::resolver resolver(ioc);
     beast::ssl_stream<beast::tcp_stream> stream(ioc, ctx);
 
+    // Bound each blocking phase so a slow/rate-limited API degrades into a
+    // failed fetch (handled by the caller) instead of hanging forever.
+    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(10));
+
     auto const results = resolver.resolve(_host, "443");
 
     beast::get_lowest_layer(stream).connect(results);
@@ -51,10 +56,14 @@ nlohmann::json ClobRestClient::getJson(const std::string& target) const {
     request.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
     request.set(http::field::accept, "application/json");
 
+    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(10));
+
     http::write(stream, request);
 
     beast::flat_buffer buffer;
     http::response<http::string_body> response;
+
+    beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(10));
 
     http::read(stream, buffer, response);
 

@@ -79,6 +79,7 @@ ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(
     opportunity.grossProfit = grossProfit;
     opportunity.netProfit = netProfit;
     opportunity.returnOnCapital = totalCost > 0 ? netProfit / totalCost : 0.0;
+    opportunity.market = market;
 
     return opportunity;
 }

@@ -11,7 +11,11 @@ nlohmann::json marketObject(
     bool closed = false,
     bool active = true,
     bool acceptingOrders = true,
-    double liquidity = 1000.0
+    double liquidity = 1000.0,
+    const std::string& question = "",
+    const std::string& conditionId = "",
+    const std::string& slug = "",
+    const std::string& eventSlug = ""
 ) {
     nlohmann::json m;
     m["clobTokenIds"] = {yesId, noId};
@@ -19,6 +23,14 @@ nlohmann::json marketObject(
     m["active"] = active;
     m["accepting_orders"] = acceptingOrders;
     m["liquidity"] = liquidity;
+    m["question"] = question;
+    m["conditionId"] = conditionId;
+    m["slug"] = slug;
+
+    if (!eventSlug.empty()) {
+        m["events"] = nlohmann::json::array({{{"slug", eventSlug}}});
+    }
+
     return m;
 }
 
@@ -26,7 +38,9 @@ nlohmann::json marketObject(
 
 TEST(MarketLoaderTest, ParsesActiveMarketsAndFiltersUnusableOnes) {
     nlohmann::json response = nlohmann::json::array({
-        marketObject("YES1", "NO1"),                                     // usable
+        marketObject("YES1", "NO1", false, true, true, 1000.0,
+                     "Will it rain?", "0xabc123",
+                     "will-it-rain", "weather-event"),                 // usable
         marketObject("YES2", "NO2", /*closed=*/true),                    // closed
         marketObject("YES3", "NO3", /*closed=*/false, /*active=*/false), // inactive
         marketObject("YES4", "NO4", /*closed=*/false, /*active=*/true,
@@ -41,6 +55,10 @@ TEST(MarketLoaderTest, ParsesActiveMarketsAndFiltersUnusableOnes) {
     ASSERT_EQ(markets.size(), 1);
     EXPECT_EQ(markets[0].yesAssetId, "YES1");
     EXPECT_EQ(markets[0].noAssetId, "NO1");
+    EXPECT_EQ(markets[0].question, "Will it rain?");
+    EXPECT_EQ(markets[0].conditionId, "0xabc123");
+    EXPECT_EQ(markets[0].slug, "will-it-rain");
+    EXPECT_EQ(markets[0].eventSlug, "weather-event");
 }
 
 TEST(MarketLoaderTest, ParsesMarketsNestedInEvents) {
