@@ -93,6 +93,30 @@ TEST(ArbitrageEnginePipelineTest, CombinedBestAskMonitorsDistanceToArbitrage) {
     EXPECT_NEAR(engine.combinedBestAsk(market), 0.85, 1e-9);
 }
 
+TEST(ArbitrageEnginePipelineTest, ClearBooksRemovesStaleSnapshots) {
+    Market market{"YES", "NO"};
+    ArbitrageEngine engine({market}, 1.0);
+
+    EXPECT_TRUE(engine.processMessage(bookSnapshot("YES", "0.40")).empty());
+    ASSERT_TRUE(engine.processMessage(bookSnapshot("NO", "0.40")).size() == 1);
+    EXPECT_NEAR(engine.combinedBestAsk(market), 0.80, 1e-9);
+
+    engine.clearBooks();
+
+    EXPECT_DOUBLE_EQ(engine.combinedBestAsk(market), 0.0);
+    EXPECT_TRUE(engine.processMessage({
+        {"event_type", "price_change"},
+        {"price_changes", {
+            {
+                {"asset_id", "YES"},
+                {"price", "0.10"},
+                {"size", "100"},
+                {"side", "SELL"}
+            }
+        }}
+    }).empty());
+}
+
 TEST(ArbitrageEnginePipelineTest, SimulatedExecutionPopulatesFullEconomics) {
     Market market{"YES", "NO"};
 

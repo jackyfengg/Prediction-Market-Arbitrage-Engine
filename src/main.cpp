@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -48,12 +49,15 @@ std::string shortLabel(const Market& market, std::size_t maxLen = 48) {
 // economics, tokens, and link.
 // ---------------------------------------------------------------------------
 
-void reportOpportunity(const ArbitrageOpportunity& opp) {
+void reportOpportunity(
+    const ArbitrageOpportunity& opp,
+    const char* label = "Arbitrage found"
+) {
     const double qty = opp.quantity;
     const double yesPrice = qty > 0 ? opp.yesCost / qty : 0.0;
     const double noPrice = qty > 0 ? opp.noCost / qty : 0.0;
 
-    std::cout << "Arbitrage found: " << opp.market.question << "\n";
+    std::cout << label << ": " << opp.market.question << "\n";
     std::cout << "  qty " << std::fixed << std::setprecision(0) << qty
               << ": buy YES @ " << std::setprecision(3) << yesPrice
               << " + NO @ " << noPrice
@@ -87,19 +91,13 @@ void reportOpportunity(const ArbitrageOpportunity& opp) {
     std::cout << "\n";
 }
 
-// Kept as a small registry for the periodic best-opportunity view, while the
-// main event stream remains identical to the original logging behavior.
-void reportImprovedOpportunity(const ArbitrageOpportunity&, double) {
-}
-
-void reportNewOpportunity(const ArbitrageOpportunity& opp) {
-    reportOpportunity(opp);
-}
-
 struct TrackedOpportunity {
     ArbitrageOpportunity opportunity;
+    ArbitrageOpportunity lastReported;
     double bestNet = 0.0;
     std::chrono::steady_clock::time_point lastSeen;
+    std::chrono::steady_clock::time_point lastReportedAt;
+    bool hasReported = false;
 };
 
 class OpportunityTracker {
@@ -114,25 +112,46 @@ public:
             }
 
             const std::string key = marketKey(opp.market);
+            const auto now = std::chrono::steady_clock::now();
             auto it = _registry.find(key);
 
-            // Restore the original streaming behavior: report every
-            // opportunity emitted by the detector, including repeated updates
-            // for the same market.
-            reportNewOpportunity(opp);
-
             if (it == _registry.end()) {
+                reportOpportunity(opp);
+
                 TrackedOpportunity tracked;
                 tracked.opportunity = opp;
+                tracked.lastReported = opp;
                 tracked.bestNet = opp.netProfit;
-                tracked.lastSeen = std::chrono::steady_clock::now();
+                tracked.lastSeen = now;
+                tracked.lastReportedAt = now;
+                tracked.hasReported = true;
                 _registry.emplace(key, std::move(tracked));
             } else {
-                if (opp.netProfit > it->second.bestNet) {
-                    it->second.bestNet = opp.netProfit;
-                    it->second.opportunity = opp;
+                TrackedOpportunity& tracked = it->second;
+                const bool wasAbsent =
+                    now - tracked.lastSeen > std::chrono::seconds(10);
+                const bool meaningfulChange = tracked.hasReported &&
+                    (std::abs(opp.totalCost - tracked.lastReported.totalCost) >= 0.01 ||
+                     std::abs(opp.netProfit - tracked.lastReported.netProfit) >= 0.01);
+                const bool cooldownExpired =
+                    now - tracked.lastReportedAt >= std::chrono::seconds(5);
+
+                if (wasAbsent) {
+                    reportOpportunity(opp);
+                    tracked.lastReported = opp;
+                    tracked.lastReportedAt = now;
+                    tracked.hasReported = true;
+                } else if (meaningfulChange && cooldownExpired) {
+                    reportOpportunity(opp, "Arbitrage updated");
+                    tracked.lastReported = opp;
+                    tracked.lastReportedAt = now;
                 }
-                it->second.lastSeen = std::chrono::steady_clock::now();
+
+                if (opp.netProfit > tracked.bestNet) {
+                    tracked.bestNet = opp.netProfit;
+                    tracked.opportunity = opp;
+                }
+                tracked.lastSeen = now;
             }
         }
 
@@ -176,7 +195,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// Hot-path statistics + periodic snapshot
+// Hot-path statistics + periodic reporting
 // ---------------------------------------------------------------------------
 
 struct Stats {
@@ -350,11 +369,19 @@ int main(int argc, char* argv[]) {
     auto initializeBooks = [&]() {
         const std::vector<std::string> assetIds = engine.assetIds();
 
+        // Resync starts from an empty state. If a REST request fails, the
+        // corresponding asset remains absent instead of retaining an old
+        // stale quote that could create a false arbitrage.
+        engine.clearBooks();
+
         const auto deadline =
             std::chrono::steady_clock::now() + std::chrono::seconds(45);
 
         std::vector<nlohmann::json> books(assetIds.size());
-        std::vector<bool> ok(assetIds.size(), false);
+        // Use byte flags rather than vector<bool>; workers write distinct
+        // entries concurrently, and vector<bool> packs entries into shared
+        // bits that can race.
+        std::vector<unsigned char> ok(assetIds.size(), 0);
 
         std::atomic<std::size_t> next{0};
 
@@ -372,7 +399,7 @@ int main(int argc, char* argv[]) {
 
                 try {
                     books[i] = clob.getOrderBook(assetIds[i]);
-                    ok[i] = true;
+                    ok[i] = 1;
                 }
                 catch (const std::exception&) {
                     // Leave ok[i] = false; the book is skipped this round.

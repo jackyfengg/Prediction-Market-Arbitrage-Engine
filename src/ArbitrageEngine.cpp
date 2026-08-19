@@ -64,6 +64,10 @@ void ArbitrageEngine::initializeBook(
     _books[assetId].applySnapshot(book);
 }
 
+void ArbitrageEngine::clearBooks() {
+    _books.clear();
+}
+
 double ArbitrageEngine::combinedBestAsk(const Market& market) const {
     auto yesIt = _books.find(market.yesAssetId);
     auto noIt = _books.find(market.noAssetId);

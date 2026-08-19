@@ -25,6 +25,10 @@ public:
 
     void initializeBook(const std::string& assetId, const nlohmann::json& book);
 
+    // Removes all local snapshots before a REST resync so failed fetches cannot
+    // leave stale liquidity available for arbitrage detection.
+    void clearBooks();
+
     std::vector<ArbitrageOpportunity> processMessage(const nlohmann::json& json);
 
     // Sum of the best asks (YES + NO) for a market, used to monitor how close
