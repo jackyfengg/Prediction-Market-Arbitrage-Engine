@@ -8,9 +8,11 @@
 class OrderBook {
 public:
     struct CalculationResult {
-        double quantity;
-        double totalCost;
-        double averagePrice;
+        double quantity = 0.0;
+        double totalCost = 0.0;
+        double averagePrice = 0.0;
+        double bestPrice = 0.0;
+        double slippage = 0.0;
     };
 
     void applySnapshot(const nlohmann::json& json);
