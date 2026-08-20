@@ -41,6 +41,9 @@ add_executable(arbitrage_tests
     tests/ArbitrageEngineTest.cpp
     src/ArbitrageDetector.cpp
     src/ArbitrageEngine.cpp
+    src/FeeModel.cpp
+    src/ExecutionSimulator.cpp
+    src/OpportunityRanker.cpp
     src/OrderBook.cpp
 )
 

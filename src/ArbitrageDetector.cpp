@@ -1,5 +1,7 @@
 #include "ArbitrageDetector.hpp"
 
+ArbitrageDetector::ArbitrageDetector(const FeeModel& feeModel) : _feeModel(feeModel) {}
+
 ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& market, const std::unordered_map<std::string, OrderBook>& books, double quantity) const {
     auto yesIt = books.find(market.yesAssetId);
     auto noIt = books.find(market.noAssetId);
@@ -36,11 +38,35 @@ ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& marke
     // so the total payout is equal to the number of complete pairs.
     double payout = executableQuantity;
 
-    if (totalCost >= payout) return {};
-
     double grossProfit = payout - totalCost;
 
-    return {executableQuantity, yesResult.totalCost, noResult.totalCost, totalCost, payout, grossProfit};
+    if (grossProfit <= 0) return {};
+
+    double yesFee = _feeModel.calculateFee(yesResult.totalCost);
+    double noFee = _feeModel.calculateFee(noResult.totalCost);
+    double totalFees = yesFee + noFee;
+
+    double netProfit = grossProfit - totalFees;
+
+    if (netProfit <= 0) return {};
+
+    ArbitrageOpportunity opportunity;
+    opportunity.quantity = executableQuantity;
+    opportunity.requestedQuantity = quantity;
+    opportunity.yesCost = yesResult.totalCost;
+    opportunity.noCost = noResult.totalCost;
+    opportunity.totalCost = totalCost;
+    opportunity.yesFee = yesFee;
+    opportunity.noFee = noFee;
+    opportunity.totalFees = totalFees;
+    opportunity.slippage = yesResult.slippage + noResult.slippage;
+    opportunity.payout = payout;
+    opportunity.grossProfit = grossProfit;
+    opportunity.netProfit = netProfit;
+    opportunity.returnOnCapital = totalCost > 0 ? netProfit / totalCost : 0.0;
+    opportunity.market = market;
+
+    return opportunity;
 }
 
 std::vector<ArbitrageOpportunity> ArbitrageDetector::scan(const std::vector<Market>& markets, const std::unordered_map<std::string, OrderBook>& books, double quantity) const {
