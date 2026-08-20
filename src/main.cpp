@@ -43,12 +43,6 @@ std::string shortLabel(const Market& market, std::size_t maxLen = 48) {
     return market.yesAssetId.substr(0, 12);
 }
 
-// ---------------------------------------------------------------------------
-// Opportunity reporting. This intentionally keeps the simple streaming
-// format: every detected opportunity is printed with its market, prices,
-// economics, tokens, and link.
-// ---------------------------------------------------------------------------
-
 void reportOpportunity(
     const ArbitrageOpportunity& opp,
     const char* label = "Arbitrage found"
@@ -193,10 +187,6 @@ private:
     double _minNetProfit;
     std::unordered_map<std::string, TrackedOpportunity> _registry;
 };
-
-// ---------------------------------------------------------------------------
-// Hot-path statistics + periodic reporting
-// ---------------------------------------------------------------------------
 
 struct Stats {
     std::size_t messages = 0;
@@ -344,34 +334,13 @@ int main(int argc, char* argv[]) {
         std::cerr << "[error] market discovery failed: " << e.what() << "\n";
     }
 
-    // Fall back to a single known market if discovery is unavailable.
-    if (markets.empty()) {
-        std::cout << "Using fallback market\n";
-
-        markets = {
-            {
-                "3039641309958397001906153616677074061284510636204155275446291716739429262374",
-                "27828976648682466778776999076215423777766972981338264154049603024771135223200"
-            }
-        };
-    }
-
     ArbitrageEngine engine(markets, quantity, feeRate);
 
     // --- 2. Initialize every book from REST before the socket starts ---
     ClobRestClient clob("clob.polymarket.com");
 
-    // Fetches every book in parallel (each REST call opens its own
-    // connection, so a shared client is safe across threads), then applies
-    // the snapshots to the engine single-threaded. Bounded by a deadline:
-    // missing books are repopulated by the WebSocket initial dump, so a
-    // slow or rate-limited API must not block startup forever.
     auto initializeBooks = [&]() {
         const std::vector<std::string> assetIds = engine.assetIds();
-
-        // Resync starts from an empty state. If a REST request fails, the
-        // corresponding asset remains absent instead of retaining an old
-        // stale quote that could create a false arbitrage.
         engine.clearBooks();
 
         const auto deadline =
@@ -445,7 +414,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // --- 3. WebSocket with reconnect/resync ---
     SocketClient client(
         "ws-subscriptions-clob.polymarket.com",
         "443",
@@ -488,10 +456,6 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Connection successful\n";
 
-    // REST already initialized every book. Do not request another full
-    // snapshot burst for all 1000 assets: the synchronous message handler can
-    // fall behind that burst and the server closes the socket with 1013
-    // "slow consumer: send buffer full". We only need incremental updates.
     client.subscribe(
         engine.assetIds(),
         "market",

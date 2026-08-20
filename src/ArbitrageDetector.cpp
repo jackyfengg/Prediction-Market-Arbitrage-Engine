@@ -40,7 +40,7 @@ ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& marke
 
     double grossProfit = payout - totalCost;
 
-    if (grossProfit >= 0) return {};
+    if (grossProfit <= 0) return {};
 
     double yesFee = _feeModel.calculateFee(yesResult.totalCost);
     double noFee = _feeModel.calculateFee(noResult.totalCost);
@@ -53,8 +53,8 @@ ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& marke
     ArbitrageOpportunity opportunity;
     opportunity.quantity = executableQuantity;
     opportunity.requestedQuantity = quantity;
-    opportunity.yesCost = yesCost;
-    opportunity.noCost = noCost;
+    opportunity.yesCost = yesResult.totalCost;
+    opportunity.noCost = noResult.totalCost;
     opportunity.totalCost = totalCost;
     opportunity.yesFee = yesFee;
     opportunity.noFee = noFee;
@@ -66,7 +66,7 @@ ArbitrageOpportunity ArbitrageDetector::checkBinaryArbitrage(const Market& marke
     opportunity.returnOnCapital = totalCost > 0 ? netProfit / totalCost : 0.0;
     opportunity.market = market;
 
-    return opporuntiy;
+    return opportunity;
 }
 
 std::vector<ArbitrageOpportunity> ArbitrageDetector::scan(const std::vector<Market>& markets, const std::unordered_map<std::string, OrderBook>& books, double quantity) const {

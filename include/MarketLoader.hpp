@@ -9,7 +9,7 @@
 
 class ClobRestClient;
 
-std::vector<Market> parseMarket(const nlohmann::json& json);
+std::vector<Market> parseMarkets(const nlohmann::json& json);
 
 class MarketLoader{
 public:

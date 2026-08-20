@@ -25,7 +25,7 @@ using tcp = boost::asio::ip::tcp;
 class SocketClient {
 public:
 
-    enum class ConnectionState {Disconnected, Connecting, Conneceted};
+    enum class ConnectionState {Disconnected, Connecting, Connected};
 
     SocketClient(
         const std::string& host,
@@ -49,10 +49,12 @@ public:
 
     void setOnMessage(std::function<void(const nlohmann::json&)> handler);
 
+    void setResyncCallback(std::function<void()> callback);
+
 private:
     void handleMessage(const nlohmann::json& json);
 
-    void reconnectAndResubscribe(const std::vector<std::string>& assetIds, const std::string& type, bool initalDump, int level, bool customFeatureEnabled);
+    void reconnectAndResubscribe(const std::vector<std::string>& assetIds, const std::string& type, bool initialDump, int level, bool customFeatureEnabled);
 
     std::string _host;
     std::string _port;

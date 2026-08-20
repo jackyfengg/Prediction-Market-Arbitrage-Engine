@@ -4,7 +4,7 @@
 
 #include "ArbitrageOpportunity.hpp"
 
-class OpportuntiyRanker {
+class OpportunityRanker {
 public:
-    std::vector<ArbitrageOpportunity> rank(std::vector<ArbitrageOpportunity> opportunites) const;
+    std::vector<ArbitrageOpportunity> rank(std::vector<ArbitrageOpportunity> opportunities) const;
 };

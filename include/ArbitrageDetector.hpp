@@ -11,12 +11,12 @@
 class ArbitrageDetector {
 public:
 
-    explicit ArbitrageDectector(const FeeModel& feeModel = FeeModel());
+    explicit ArbitrageDetector(const FeeModel& feeModel = FeeModel());
 
     ArbitrageOpportunity checkBinaryArbitrage(const Market& market, const std::unordered_map<std::string, OrderBook>& books, double quantity) const; 
       
     std::vector<ArbitrageOpportunity> scan(const std::vector<Market>& markets, const std::unordered_map<std::string, OrderBook>& books, double quantity) const;
 
 private:
-    FeeModel _feeMode;
+    FeeModel _feeModel;
 };

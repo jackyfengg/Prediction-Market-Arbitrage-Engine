@@ -26,7 +26,7 @@ ArbitrageOpportunity toOpportunity(const Market& market, const ExecutionResult& 
 
 } // namespace
 
-ArbitrageEngine::ArbitrageEngine(const std::vector<Market>& markets, double quantity)
+ArbitrageEngine::ArbitrageEngine(const std::vector<Market>& markets, double quantity, double feeRate)
     : _markets(markets),
       _feeModel(feeRate),
       _detector(_feeModel),

@@ -12,4 +12,5 @@ struct Market {
 
     std::string slug;
     std::string eventSlug;
+
 };

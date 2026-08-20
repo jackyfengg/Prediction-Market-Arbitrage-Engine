@@ -5,6 +5,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "ArbitrageDetector.hpp"
 #include "ExecutionSimulator.hpp"
 #include "FeeModel.hpp"
@@ -20,7 +22,7 @@ public:
 
     void clearBooks();
 
-    std::vector<ArbitrageOpportunity> processMessage(const nlohmann::json& josn);
+    std::vector<ArbitrageOpportunity> processMessage(const nlohmann::json& json);
 
     double combinedBestAsk(const Market& market) const;
 

@@ -36,8 +36,7 @@ SocketClient::SocketClient(const std::string& host, const std::string& port, con
     _engine(engine),
     _ioc(),
     _ctx(net::ssl::context::tls_client),
-    _resolver(_ioc),
-    _ws(_ioc, _ctx)
+    _resolver(_ioc)
 {
 }
 
@@ -215,7 +214,7 @@ bool SocketClient::subscribe(const std::vector<std::string>& assetIds, const std
 }
 
 std::string SocketClient::read() {
-    _ws.read(_buffer);
+    _ws->read(_buffer);
 
     std::string message = beast::buffers_to_string(_buffer.data());
     _buffer.consume(_buffer.size());
@@ -227,7 +226,7 @@ void SocketClient::setOnMessage(std::function<void(const nlohmann::json&)> handl
     _onMessage = std::move(handler);
 }
 
-void SocketClient::setResyncCallback(std::fucntion<void()> callback) {
+void SocketClient::setResyncCallback(std::function<void()> callback) {
     _resync = std::move(callback);
 }
 
