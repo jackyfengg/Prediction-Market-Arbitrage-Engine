@@ -55,6 +55,7 @@ double OrderBook::getBestAsk() {
 
 OrderBook::CalculationResult OrderBook::calculateBuyCost(double quantity) const {
     double unfilled = quantity, totalCost = 0;
+    double bestPrice = _asks.empty() ? 0.0 : _asks.begin()->first;
 
     for (const auto& [price, amountofsellers] : _asks) {
         double filled = std::min(unfilled, amountofsellers);
@@ -67,12 +68,16 @@ OrderBook::CalculationResult OrderBook::calculateBuyCost(double quantity) const 
     }
 
     double filledQuantity = quantity - unfilled;
+    double averagePrice = filledQuantity > 0 ? totalCost / filledQuantity : 0.0;
+    double slippage = (averagePrice - bestPrice) * filledQuantity;
 
-    return {filledQuantity, totalCost, filledQuantity > 0 ? totalCost / filledQuantity : 0.0};
+    return {filledQuantity, totalCost, averagePrice, bestPrice, slippage};
 }
 
 OrderBook::CalculationResult OrderBook::calculateSellRevenue(double quantity) const {
     double unfilled = quantity, totalRevenue = 0;
+
+    double bestPrice = _bids.empty() ? 0.0 : _bids.begin()->first;
 
     for (const auto& [price, amountofbuyers] : _bids) {
         double filled = std::min(unfilled, amountofbuyers);
@@ -84,6 +89,11 @@ OrderBook::CalculationResult OrderBook::calculateSellRevenue(double quantity) co
     }
 
     double filledQuantity = quantity - unfilled;
+    double averagePrice = filledQuantity > 0 ? totalRevenue / filledQuantity : 0.0;
 
-    return {filledQuantity, totalRevenue, filledQuantity > 0 ? totalRevenue / filledQuantity : 0.0};
+    // Selling walks down the bid ladder, so the average execution price is
+    // <= the best bid. The gap times the filled quantity is the liquidity cost.
+    double slippage = (bestPrice - averagePrice) * filledQuantity;
+
+    return {filledQuantity, totalRevenue, averagePrice, bestPrice, slippage};
 }

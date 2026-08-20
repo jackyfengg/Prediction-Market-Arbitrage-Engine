@@ -19,5 +19,5 @@ public:
     std::vector<Market> loadMarkets(std::size_t limit = 100) const;
 
 private:
-    ClobRestClient& client;
+    ClobRestClient& _client;
 };

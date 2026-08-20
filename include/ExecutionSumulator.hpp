@@ -25,7 +25,7 @@ struct ExecutionResult {
 
 class ExecutionSimulator {
 public:
-    explicit ExecutionSimulator(const FeeModel& feeModel = FeeMode());
+    explicit ExecutionSimulator(const FeeModel& feeModel = FeeModel());
 
     ExecutionResult simulate(const Market& market, const std::unordered_map<std::string, OrderBook>& books, double requestedQuantity) const;
 
